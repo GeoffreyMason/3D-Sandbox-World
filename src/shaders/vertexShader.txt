@@ -1,0 +1,78 @@
+#version 400 core
+
+in vec3 RGBcolour;
+in vec3 position;
+in vec3 normal;
+
+out vec3 colour;
+out vec3 surfaceNormal;
+out vec3 toLightVector[4];
+out vec3 toCameraVector;
+out float visibility;
+
+uniform mat4 transformationMatrix;
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform vec3 lightPosition[4];
+uniform float time;
+
+const float density = 0.00055;
+const float gradient = 5.0;
+const float PI = 3.1415926535897932384626433832795;
+const float amplitude = 0.0005;
+
+uniform vec4 plane;
+
+float moveTreeX() {
+	float component1 = (position.y * sin(2 * PI * time) - position.y / 2) * amplitude * position.y;
+	return component1;
+}
+
+float moveTreeZ() {
+	float component1 = (position.y * cos(PI * time) - position.y / 2) * amplitude;
+	return component1;
+}
+
+void main(void){
+
+	vec4 worldPosition = transformationMatrix * vec4(position.x/* + moveTreeX()*/, position.y, position.z/* + moveTreeX()*/, 1.0);
+	
+	gl_ClipDistance[0] = dot(worldPosition, plane);
+	
+	vec4 positionRelativeToCam = viewMatrix * worldPosition;
+	gl_Position = projectionMatrix * positionRelativeToCam;
+	colour = RGBcolour;
+	
+	surfaceNormal = (transformationMatrix * vec4(normal, 0.0)).xyz;
+	for (int i = 0; i < 4; i++) {
+		toLightVector[i] = lightPosition[i] - worldPosition.xyz;
+	}
+	
+	toCameraVector = (inverse(viewMatrix) * vec4( 0.0, 0.0, 0.0, 1.0)).xyz - worldPosition.xyz;
+	
+	/*
+	float distance = 0;
+	float posX = position.x - 200;
+	float posZ = position.z - 200;
+	if (abs(posX) > abs(posZ)) {
+		distance = posX;
+	} else {
+		distance = posZ;
+	}
+	*/
+	/*
+	float posX = worldPosition.x - 200;
+	float posZ = worldPosition.z - 200;
+	float distance = sqrt(pow(posX, 2) + pow(posZ, 2));
+	float distanceToPlayer = length(positionRelativeToCam.xyz);
+	
+	if (distanceToPlayer > 500) 
+		visibility = exp(-pow((distanceToPlayer * density), gradient));
+	else
+		visibility = exp(-pow((distance * density), gradient));
+	*/
+	
+	float distanceToPlayer = length(positionRelativeToCam.xyz);
+	visibility = exp(-pow((distanceToPlayer * density), gradient));
+	visibility = clamp(visibility, 0.0, 1.0);
+}

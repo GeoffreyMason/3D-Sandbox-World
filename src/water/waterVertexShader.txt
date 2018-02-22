@@ -1,0 +1,73 @@
+#version 400 core
+
+in vec3 position;
+
+out vec4 clipSpace;
+out vec2 textureCoords;
+out float vertexVisibility;
+out vec4 positionRelativeToCam;
+out vec3 toCameraVector;
+out vec3 vertexPosition;
+
+uniform mat4 transformationMatrix;
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform float time;
+uniform vec3 cameraPosition;
+
+const float density = 0.00055;
+const float gradient = 50.0;
+
+const float PI = 3.1415926535897932384626433832795;
+const float amplitude = 0.5;
+
+const float tiling = 6.0;
+
+float generateHeight() {
+	float component1 = sin(2.0 * PI * time + (position.x * 16.0)) * amplitude;
+	float component2 = sin(2.0 * PI * time + (position.z * position.x * 8.0)) * amplitude;
+	return component1 + component2;
+}
+
+float generateHeight2() {
+	float component1 = sin(2.0 * PI * time + (position.x * 16.0)) * amplitude;
+	float component2 = sin(2.0 * PI * time + (position.z * 16.0)) * amplitude;
+	return component1 + component2;
+}
+
+void main(void){
+
+	float height = generateHeight2() - 4;
+
+	clipSpace = projectionMatrix * viewMatrix * transformationMatrix * vec4(position.x, height, position.z, 1.0);
+
+	//vec4 worldPosition = transformationMatrix * vec4(position.x + generateHeight3(), height, position.z + generateHeight4(), 1.0);
+	vec4 worldPosition = transformationMatrix * vec4(position.x, height, position.z, 1.0);
+	positionRelativeToCam = viewMatrix * worldPosition;
+	gl_Position = projectionMatrix * positionRelativeToCam;
+	vertexPosition = gl_Position.xyz;
+	textureCoords = vec2(position.x / 2.0 + 0.5, position.y / 2.0 + 0.5) * tiling;
+	
+	toCameraVector = cameraPosition - worldPosition.xyz;
+	
+	//float distance = sqrt(pow(position.x, 2) + pow(position.z, 2));
+	
+	/*
+	float distance = 0;
+	float posX = position.x - 200;
+	float posZ = position.z - 200;
+	if (abs(posX) > abs(posZ)) {
+		distance = posX;
+	} else {
+		distance = posZ;
+	}
+	*/
+	/*
+	float posX = position.x - 200;
+	float posZ = position.z - 200;
+	float distance = sqrt(pow(posX, 2) + pow(posZ, 2));
+	*/
+	float distanceToPlayer = length(positionRelativeToCam.xyz);
+	vertexVisibility = exp(-pow((distanceToPlayer * density), gradient));
+	vertexVisibility = clamp(vertexVisibility, 0.0, 1.0);
+}

@@ -1,0 +1,86 @@
+#version 400 core
+
+in vec3 position;
+in vec3 normal;
+in vec3 colour;
+
+out vec3 vertexColour;
+out vec3 surfaceNormal;
+out vec3 toLightVector1;
+out vec3 toLightVector2;
+out vec3 toLightVector3;
+out vec3 toLightVector4;
+out float vertexVisibility;
+out vec3 toCameraVector;
+out vec4 shadowCoords;
+
+out vec3 vertexPosition;
+out vec4 worldPosition;
+
+uniform mat4 transformationMatrix;
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform vec3 lightPosition[4];
+uniform mat4 toShadowMapSpace;
+
+uniform vec3 newColour;
+
+const float density = 0.00055;
+const float gradient = 50.0;
+
+const float shadowDistance = 150.0;
+const float transitionDistance = 50.0;
+
+const vec4 plane = vec4(0, -1, 0, 6);
+
+void main(void){
+	
+	vertexPosition = position;
+	worldPosition = transformationMatrix * vec4(vertexPosition, 1.0);
+	
+	shadowCoords = toShadowMapSpace * worldPosition;
+	vec4 positionRelativeToCam = viewMatrix * worldPosition;
+	gl_Position = projectionMatrix * positionRelativeToCam;
+	vertexColour = colour;
+	
+	surfaceNormal = (transformationMatrix * vec4(normal, 0.0)).xyz;
+		
+	toLightVector1 = lightPosition[0] - worldPosition.xyz;
+	toLightVector2 = lightPosition[1] - worldPosition.xyz;
+	toLightVector3 = lightPosition[2] - worldPosition.xyz;
+	toLightVector4 = lightPosition[3] - worldPosition.xyz;
+
+	toCameraVector = (inverse(viewMatrix) * vec4(0.0, 0.0, 0.0, 1.0)).xyz - worldPosition.xyz;
+	
+	float distanceToPlayer = length(positionRelativeToCam.xyz);
+	/*
+	float distance = 0;
+	float posX = position.x - 200;
+	float posZ = position.z - 200;
+	if (abs(posX) > abs(posZ)) {
+		distance = posX;
+	} else {
+		distance = posZ;
+	}
+	*/
+	
+	
+	/*
+	float posX = vertexPosition.x - 200;
+	float posZ = vertexPosition.z - 200;
+	float distance = sqrt(pow(posX, 2) + pow(posZ, 2));
+	float distanceToPlayer = length(positionRelativeToCam.xyz);
+	
+	if (distanceToPlayer > 500) 
+		vertexVisibility = exp(-pow((distanceToPlayer * density), gradient));
+	else
+		vertexVisibility = exp(-pow((distance * density), gradient));
+	*/
+	
+	vertexVisibility = exp(-pow((distanceToPlayer * density), gradient));
+	vertexVisibility = clamp(vertexVisibility, 0.0, 1.0);
+	
+	distanceToPlayer = distanceToPlayer - (shadowDistance - transitionDistance);
+	distanceToPlayer = distanceToPlayer / transitionDistance;
+	shadowCoords.w = clamp(1.0 - distanceToPlayer, 0.0, 1.0);
+}

@@ -1,0 +1,58 @@
+#version 400 core
+/*
+in vec4 clipSpace;
+in vec2 textureCoords;
+
+in float vertexVisibility;
+in vec4 positionRelativeToCam;
+in vec3 toCameraVector;
+*/
+
+in vec3 gsColour;
+in float gsVisibility;
+in vec4 gsClipSpace;
+in vec3 gsToCameraVector;
+in vec2 gsTextureCoords;
+
+out vec4 fragmentColour;
+
+uniform vec3 lightColour;
+uniform vec3 skyColour;
+
+uniform sampler2D reflectionTexture;
+uniform sampler2D refractionTexture;
+uniform sampler2D dudvMap;
+
+const float waveStrength = 0.02;
+
+void main(void){
+
+	vec2 ndc = (gsClipSpace.xy / gsClipSpace.w) / 2.0 + 0.5;
+	vec2 refractionTexCoords = vec2(ndc.x, ndc.y);
+	vec2 reflectionTexCoords = vec2(ndc.x, -ndc.y);
+	
+	vec2 distortion1 = (texture(dudvMap, vec2(gsTextureCoords.x, gsTextureCoords.y)).rg * 2.0 - 1.0) * waveStrength;
+	
+	refractionTexCoords += distortion1;
+	refractionTexCoords = clamp(refractionTexCoords, 0.001, 0.999);
+	
+	reflectionTexCoords += distortion1;
+	reflectionTexCoords.x = clamp(reflectionTexCoords.x, 0.001, 0.999);
+	reflectionTexCoords.y = clamp(reflectionTexCoords.y, -0.999, -0.001);
+
+	vec4 reflectColour = texture(reflectionTexture, reflectionTexCoords);
+	vec4 refractColour = texture(refractionTexture, refractionTexCoords);
+	
+	fragmentColour = vec4(gsColour, 1);
+	fragmentColour = mix(vec4(skyColour, 1.0), fragmentColour, gsVisibility);
+	
+	
+	vec3 viewVector = normalize(gsToCameraVector);
+	float refractiveFactor = dot(viewVector, vec3(0.0, 1.0, 0.0));
+	refractiveFactor = pow(refractiveFactor, 0.5);
+	
+	vec4 refColour = mix(reflectColour, refractColour, refractiveFactor);
+	fragmentColour = mix(fragmentColour, refColour, 0.5);
+	//fragmentColour = mix(fragmentColour, vec4(0.0, 0.3, 0.5, 1.0), 0.2);
+	
+}

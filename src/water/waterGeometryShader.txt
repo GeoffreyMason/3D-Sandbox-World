@@ -1,0 +1,79 @@
+#version 400 core
+
+layout (triangles) in;
+layout (triangle_strip,  max_vertices=3) out;
+
+in vec4 clipSpace[];
+in vec2 textureCoords[];
+in float vertexVisibility[];
+in vec4 positionRelativeToCam[];
+in vec3 toCameraVector[];
+in vec3 vertexPosition[];
+
+out vec3 gsColour;
+out float gsVisibility;
+out vec4 gsClipSpace;
+out vec3 gsToCameraVector;
+out vec2 gsTextureCoords;
+
+const vec3 lightDirection = normalize(vec3(0.4, -1.0, 0.8));
+const vec3 lightColour = vec3(1.0, 1.0, 1.0);
+const float reflectivity = 0.5;
+const float shineDamper = 14.0;
+const float ambientLighting = 0.5;
+const vec3 vertexColour = vec3(0.251, 0.643, 0.875);
+
+vec3 calculateTriangleNormal() {
+	vec3 tangent = gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz;
+	vec3 bitangent = gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz;
+	vec3 normal = cross(tangent, bitangent);	
+	return normalize(normal);
+}
+
+vec3 calculateSpecular(vec4 worldPosition, vec3 normal, int i) {
+	vec3 viewVector = normalize(positionRelativeToCam[i].xyz - worldPosition.xyz);
+	vec3 reflectedLightDirection = reflect(lightDirection, normal);
+	float specularFactor = dot(reflectedLightDirection, viewVector);
+	specularFactor = max(pow(specularFactor, shineDamper), 0.0);
+	return lightColour * specularFactor * reflectivity;
+}
+
+void main() {
+
+	vec3 A = vertexPosition[2].xyz - vertexPosition[0].xyz;
+    vec3 B = vertexPosition[1].xyz - vertexPosition[0].xyz;
+    
+    //mat4 normalMatrix = transpose(inverse(modelViewMatrix));
+    vec3 normal = - normalize(cross(A, B));
+
+	//vec3 normal = calculateTriangleNormal();
+	float brightness = max(dot(-lightDirection, normal), ambientLighting);
+	vec3 colour = vertexColour * brightness;
+	
+	
+
+    gl_Position = gl_in[0].gl_Position;
+    gsColour = colour + calculateSpecular(gl_Position, normal, 0);
+    gsVisibility = vertexVisibility[0];
+    gsClipSpace = clipSpace[0];
+    gsToCameraVector = toCameraVector[0];
+    gsTextureCoords = textureCoords[0];
+    EmitVertex();
+
+    gl_Position = gl_in[1].gl_Position;
+    gsColour = colour + calculateSpecular(gl_Position, normal, 1);
+    gsVisibility = vertexVisibility[0];
+    gsClipSpace = clipSpace[1];
+    gsToCameraVector = toCameraVector[1];
+    gsTextureCoords = textureCoords[1];
+    EmitVertex();
+
+    gl_Position = gl_in[2].gl_Position;
+    gsColour = colour + calculateSpecular(gl_Position, normal, 2);
+    gsVisibility = vertexVisibility[0];
+    gsClipSpace = clipSpace[2];
+    gsToCameraVector = toCameraVector[2];
+    gsTextureCoords = textureCoords[2];
+    EmitVertex();
+    EndPrimitive();
+}

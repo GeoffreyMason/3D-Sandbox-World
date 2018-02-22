@@ -1,0 +1,132 @@
+#version 400 core
+/*
+flat in vec3 vertexColour;
+flat in vec3 surfaceNormal;
+in vec3 toLightVector[4];
+in vec3 toCameraVector;
+flat in float vertexVisibility;
+*/
+
+in vec3 gsColour;
+in float gsVisibility;
+in vec3 gsSurfaceNormal;
+in vec3 gsToLightVector1;
+in vec3 gsToLightVector2;
+in vec3 gsToLightVector3;
+in vec3 gsToLightVector4;
+in vec3 gsToCameraVector;
+in vec4 gsShadowCoords;
+in vec3 gsPosition;
+
+out vec4 fragmentColour;
+
+uniform vec3 lightColour[4];
+uniform vec3 attenuation[4];
+uniform vec3 skyColour;
+uniform sampler2D shadowMap;
+uniform vec2 objectPosition;
+uniform float shineDamper;
+uniform float reflectivity;
+uniform float spread;
+uniform vec3 paintColour;
+
+const int pcfCount = 2;
+const float totalTexels = (pcfCount * 2.0 + 1.0) * (pcfCount * 2.0 + 1.0);
+
+void main(void){
+
+	float mapSize = 4096.0;
+	float texelSize = 1.0 / mapSize;
+	float total = 0.0;
+	
+	for (int x = -pcfCount; x <= pcfCount; x++) {
+		for (int y = -pcfCount; y <= pcfCount; y++) {
+			float objectNearestLight = texture(shadowMap, gsShadowCoords.xy + vec2(x, y) * texelSize).r;
+			if (gsShadowCoords.z > objectNearestLight + 0.002) {
+				total += 1.0;
+			}
+		}
+	}
+	
+	total /= totalTexels;
+
+	float lightFactor = 1.0 - (total * gsShadowCoords.w);
+
+	vec3 unitNormal = normalize(gsSurfaceNormal);
+	vec3 unitVectorToCamera = normalize(gsToCameraVector);
+	
+	
+	vec3 totalDiffuse = vec3(0.0);
+
+	float distance1 = length(gsToLightVector1);
+	float attFactor1 = attenuation[0].x + (attenuation[0].y * distance1) + (attenuation[0].z * distance1 * distance1);
+	vec3 unitLightVector1 = normalize(gsToLightVector1);
+	float nDot1 = dot(unitNormal, unitLightVector1);
+	float brightness1 = max(nDot1, 0.0);
+	totalDiffuse = totalDiffuse + (brightness1 * lightColour[0]) / attFactor1;
+	
+	vec3 lightDirection1 = - unitLightVector1;
+	vec3 reflectedLightDirection1 = reflect(lightDirection1, unitNormal);
+	float specularFactor1 = dot(reflectedLightDirection1, unitVectorToCamera);
+	specularFactor1 = max(specularFactor1, 0.0);
+	float dampedFactor1 = pow(specularFactor1, shineDamper);
+	vec3 finalSpecular = (dampedFactor1 * lightColour[0]) / attFactor1;
+	
+	float distance2 = length(gsToLightVector2);
+	float attFactor2 = attenuation[1].x + (attenuation[1].y * distance2) + (attenuation[1].z * distance2 * distance2);
+	vec3 unitLightVector2 = normalize(gsToLightVector2);
+	float nDot2 = dot(unitNormal, unitLightVector2);
+	float brightness2 = max(nDot2, 0.0);
+	totalDiffuse = totalDiffuse + (brightness2 * lightColour[1]) / attFactor2;
+	
+	vec3 lightDirection2 = - unitLightVector2;
+	vec3 reflectedLightDirection2 = reflect(lightDirection2, unitNormal);
+	float specularFactor2 = dot(reflectedLightDirection2, unitVectorToCamera);
+	specularFactor2 = max(specularFactor2, 0.0);
+	float dampedFactor2 = pow(specularFactor2, shineDamper);
+	finalSpecular += (dampedFactor2 * lightColour[1]) / attFactor2;
+	
+	float distance3 = length(gsToLightVector3);
+	float attFactor3 = attenuation[2].x + (attenuation[2].y * distance3) + (attenuation[2].z * distance3 * distance3);
+	vec3 unitLightVector3 = normalize(gsToLightVector3);
+	float nDot3 = dot(unitNormal, unitLightVector3);
+	float brightness3 = max(nDot3, 0.0);
+	totalDiffuse = totalDiffuse + (brightness3 * lightColour[2]) / attFactor3;
+	
+	vec3 lightDirection3 = - unitLightVector3;
+	vec3 reflectedLightDirection3 = reflect(lightDirection3, unitNormal);
+	float specularFactor3 = dot(reflectedLightDirection3, unitVectorToCamera);
+	specularFactor3 = max(specularFactor3, 0.0);
+	float dampedFactor3 = pow(specularFactor3, shineDamper);
+	finalSpecular += (dampedFactor3 * lightColour[2]) / attFactor3;
+	
+	float distance4 = length(gsToLightVector4);
+	float attFactor4 = attenuation[3].x + (attenuation[3].y * distance4) + (attenuation[3].z * distance4 * distance4);
+	vec3 unitLightVector4 = normalize(gsToLightVector4);
+	float nDot4 = dot(unitNormal, unitLightVector4);
+	float brightness4 = max(nDot4, 0.0);
+	totalDiffuse = totalDiffuse + (brightness4 * lightColour[3]) / attFactor4;
+	
+	vec3 lightDirection4 = - unitLightVector4;
+	vec3 reflectedLightDirection4 = reflect(lightDirection4, unitNormal);
+	float specularFactor4 = dot(reflectedLightDirection4, unitVectorToCamera);
+	specularFactor4 = max(specularFactor4, 0.0);
+	float dampedFactor4 = pow(specularFactor4, shineDamper);
+	finalSpecular += (dampedFactor4 * lightColour[3]) / attFactor4;
+	
+	finalSpecular *= reflectivity;
+	
+	totalDiffuse = ((max(totalDiffuse * lightFactor, 0.0) + 0.8) / 1.8);
+	
+	vec3 finalColour = gsColour;
+	float distanceX = gsPosition.x - objectPosition.x;
+	float distanceZ = gsPosition.z - objectPosition.y;
+	float distanceToObject = sqrt(pow(distanceX, 2) + pow(distanceZ, 2));
+	
+	if (distanceToObject < spread && distanceToObject > spread - spread * 0.2) {
+		finalColour = mix(finalColour, paintColour, 0.6);
+	}
+	
+	fragmentColour = vec4(finalColour, 1.0) * vec4(totalDiffuse, 1.0) + vec4(finalSpecular, 1.0);
+	fragmentColour = mix(vec4(skyColour, 1.0), fragmentColour, gsVisibility);
+}
